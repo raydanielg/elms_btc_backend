@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use App\Models\Application;
 use App\Models\User;
 use App\Models\Payment;
+use App\Notifications\ApplicationSubmittedNotification;
+use App\Notifications\ApplicationReviewedNotification;
 
 class ApplicationController extends Controller
 {
@@ -42,6 +45,18 @@ class ApplicationController extends Controller
             'pay_slip_url' => $data['pay_slip_url'] ?? null,
             'status' => 'SUBMITTED',
         ]);
+
+        $this->audit('submit_application', 'Application', $application->id, ['program' => $application->program?->name]);
+
+        // Notify applicant via email
+        try {
+            $applicant = $request->user();
+            $programName = $application->program?->name ?? 'Unknown';
+            Notification::route('mail', $applicant->email)
+                ->notify(new ApplicationSubmittedNotification($programName, $data['mode']));
+        } catch (\Exception $e) {
+            \Log::error('Application submitted email failed: ' . $e->getMessage());
+        }
 
         return $this->success($application->load(['applicant', 'program']), 201);
     }
@@ -108,6 +123,16 @@ class ApplicationController extends Controller
         ]);
 
         $this->audit('review_application', 'Application', $application->id, ['decision' => $request->decision]);
+
+        // Notify applicant via email
+        try {
+            $applicant = $application->applicant;
+            $programName = $application->program?->name ?? 'Unknown';
+            Notification::route('mail', $applicant->email)
+                ->notify(new ApplicationReviewedNotification($request->decision, $programName));
+        } catch (\Exception $e) {
+            \Log::error('Application reviewed email failed: ' . $e->getMessage());
+        }
 
         // If accepted, upgrade applicant to STUDENT
         if ($request->decision === 'ACCEPTED') {

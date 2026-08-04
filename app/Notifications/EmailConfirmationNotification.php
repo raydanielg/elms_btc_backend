@@ -23,19 +23,12 @@ class EmailConfirmationNotification extends Notification implements ShouldQueue
     {
         $url = config('app.frontend_url', 'http://localhost:3000') . '/auth/confirm-email/' . $this->token;
 
-        return $this->buildMailMessage($url);
-    }
-
-    protected function buildMailMessage(string $url)
-    {
-        return \Illuminate\Mail\Message::class === null
-            ? null
-            : (new \Illuminate\Notifications\Messages\MailMessage)
-                ->subject('Confirm Your Email — Butimba Teachers College LMS')
-                ->greeting('Hello!')
-                ->line('Please confirm your email address to activate your account.')
-                ->action('Confirm Email', $url)
-                ->line('This link will expire in 24 hours.')
-                ->line('If you did not create an account, no further action is required.');
+        return (new \Illuminate\Notifications\Messages\MailMessage)
+            ->subject('Confirm Your Email — Butimba Teachers College LMS')
+            ->greeting('Hello ' . $notifiable->full_name . ',')
+            ->line('Please confirm your email address to activate your account.')
+            ->action('Confirm Email', $url)
+            ->line('This link will expire in 24 hours.')
+            ->line('If you did not create an account, no further action is required.');
     }
 }
