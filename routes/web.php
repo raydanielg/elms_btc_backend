@@ -1,8 +1,15 @@
 <?php
 
 use App\Http\Controllers\ApiDocsController;
+use App\Http\Controllers\InstallerController;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
+
+// Installer routes
+Route::get('/installer', [InstallerController::class, 'index']);
+Route::get('/installer/requirements', [InstallerController::class, 'requirements']);
+Route::get('/installer/database', [InstallerController::class, 'databaseForm']);
+Route::post('/installer/install', [InstallerController::class, 'runInstall']);
 
 Route::get('/', function () {
     $dbOk = true;
