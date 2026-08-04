@@ -5,6 +5,13 @@ use Illuminate\Http\Request;
 
 define('LARAVEL_START', microtime(true));
 
+// Auto-create .env from .env.example if it doesn't exist (for fresh deployments)
+$envPath = __DIR__.'/../.env';
+$envExamplePath = __DIR__.'/../.env.example';
+if (!file_exists($envPath) && file_exists($envExamplePath)) {
+    copy($envExamplePath, $envPath);
+}
+
 // Determine if the application is in maintenance mode...
 if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php')) {
     require $maintenance;

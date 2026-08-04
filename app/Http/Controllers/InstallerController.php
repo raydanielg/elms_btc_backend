@@ -9,6 +9,23 @@ use Illuminate\Support\Facades\File;
 
 class InstallerController extends Controller
 {
+    public function __construct()
+    {
+        // Ensure .env exists and has an APP_KEY
+        $envPath = base_path('.env');
+        if (!File::exists($envPath)) {
+            $example = base_path('.env.example');
+            if (File::exists($example)) {
+                File::copy($example, $envPath);
+            }
+        }
+
+        // Generate key if missing
+        if (File::exists($envPath) && empty(env('APP_KEY'))) {
+            Artisan::call('key:generate', ['--force' => true]);
+        }
+    }
+
     public function index()
     {
         if ($this->isInstalled()) {
