@@ -58,9 +58,13 @@ class AuthController extends Controller
             'expires_at' => now()->addHours(24),
         ]);
 
-        // Send confirmation email
-        Notification::route('mail', $user->email)
-            ->notify(new EmailConfirmationNotification($confirmation->token));
+        // Send confirmation email (don't fail registration if email fails)
+        try {
+            Notification::route('mail', $user->email)
+                ->notify(new EmailConfirmationNotification($confirmation->token));
+        } catch (\Exception $e) {
+            // Email sending failed — continue anyway
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -121,8 +125,12 @@ class AuthController extends Controller
             'expires_at' => now()->addHours(24),
         ]);
 
-        Notification::route('mail', $user->email)
-            ->notify(new EmailConfirmationNotification($confirmation->token));
+        try {
+            Notification::route('mail', $user->email)
+                ->notify(new EmailConfirmationNotification($confirmation->token));
+        } catch (\Exception $e) {
+            // Email sending failed — continue anyway
+        }
 
         return $this->success(['message' => 'Confirmation link sent.']);
     }
@@ -248,15 +256,19 @@ class AuthController extends Controller
     {
         $request->validate(['email' => 'required|string|email']);
 
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        try {
+            $status = Password::sendResetLink(
+                $request->only('email')
+            );
+        } catch (\Exception $e) {
+            return $this->success(['message' => 'If the email exists, a reset link has been sent.']);
+        }
 
         if ($status === Password::RESET_LINK_SENT) {
             return $this->success(['message' => 'Password reset link sent to your email.']);
         }
 
-        return $this->error('RESET_LINK_FAILED', 'Unable to send reset link.', 400);
+        return $this->success(['message' => 'If the email exists, a reset link has been sent.']);
     }
 
     public function resetPassword(Request $request)
