@@ -89,6 +89,8 @@ class AdminController extends Controller
             'created_by' => $request->user()->id,
         ]);
 
+        $this->audit('create_announcement', 'Announcement', $announcement->id, ['title' => $data['title']]);
+
         return $this->success($announcement, 201);
     }
 
@@ -104,6 +106,8 @@ class AdminController extends Controller
         $media = MediaGallery::create(array_merge($data, [
             'uploaded_by' => $request->user()->id,
         ]));
+
+        $this->audit('upload_media', 'MediaGallery', $media->id, ['type' => $data['type']]);
 
         return $this->success($media, 201);
     }
@@ -126,6 +130,7 @@ class AdminController extends Controller
         ]);
 
         $news = NewsEvent::create($data);
+        $this->audit('create_news', 'NewsEvent', $news->id, ['title' => $data['title']]);
         return $this->success($news, 201);
     }
 

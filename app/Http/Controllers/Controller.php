@@ -48,12 +48,16 @@ abstract class Controller
 
     protected function audit(string $action, string $entity, ?string $entityId, array $meta = []): void
     {
-        \App\Models\AuditLog::create([
-            'actor_id' => auth()->id(),
-            'action' => $action,
-            'entity' => $entity,
-            'entity_id' => $entityId,
-            'meta' => $meta,
-        ]);
+        try {
+            \App\Models\AuditLog::create([
+                'actor_id' => auth()->id(),
+                'action' => $action,
+                'entity' => $entity,
+                'entity_id' => $entityId,
+                'meta' => $meta,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Audit log failed: ' . $e->getMessage());
+        }
     }
 }

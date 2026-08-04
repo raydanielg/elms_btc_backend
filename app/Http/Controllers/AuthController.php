@@ -185,6 +185,8 @@ class AuthController extends Controller
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
+            $this->audit('login', 'User', $user->id, ['email' => $user->email]);
+
             return $this->success([
                 'user' => $user,
                 'access_token' => $token,
@@ -196,7 +198,9 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $userId = $request->user()->id;
         $request->user()->currentAccessToken()->delete();
+        $this->audit('logout', 'User', $userId);
         return $this->success(null);
     }
 
