@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AdminServiceController;
 use App\Http\Controllers\ApplicationController;
+use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\CourseController;
@@ -24,6 +25,9 @@ use App\Http\Controllers\RbacController;
 use App\Http\Controllers\ResultController;
 use App\Http\Controllers\SubjectController;
 use Illuminate\Support\Facades\Route;
+
+// API Documentation (public)
+Route::get('/docs', [ApiDocsController::class, 'json']);
 
 // Auth routes (public)
 Route::post('/auth/register', [AuthController::class, 'register']);
