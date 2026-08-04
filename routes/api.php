@@ -27,7 +27,8 @@ use App\Http\Controllers\SubjectController;
 use Illuminate\Support\Facades\Route;
 
 // API Documentation (public)
-Route::get('/docs', [ApiDocsController::class, 'json']);
+Route::get('/docs', [ApiDocsController::class, 'openapiSpec']);
+Route::get('/docs/openapi.json', [ApiDocsController::class, 'openapiSpec']);
 
 // Auth routes (public)
 Route::post('/auth/register', [AuthController::class, 'register']);
