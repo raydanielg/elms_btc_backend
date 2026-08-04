@@ -142,52 +142,56 @@ class AuthController extends Controller
             'password' => 'required|string',
         ]);
 
-        // Rate limiting: 5 attempts per minute per IP+email
-        $key = 'login:' . $request->ip() . ':' . $request->email;
-        if (RateLimiter::tooManyAttempts($key, 5)) {
-            $seconds = RateLimiter::availableIn($key);
-            return $this->error('RATE_LIMITED', "Too many login attempts. Try again in {$seconds} seconds.", 429);
-        }
-
-        $user = User::where('email', $request->email)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            RateLimiter::hit($key, 60);
-            return $this->error('INVALID_CREDENTIALS', 'The provided credentials are incorrect.', 401);
-        }
-
-        if ($user->status === 'SUSPENDED') {
-            return $this->error('ACCOUNT_SUSPENDED', 'Your account has been suspended. Contact administration.', 403);
-        }
-
-        // Payment gate for STUDENT role (spec §22 — payment-gated enrolment)
-        if ($user->role === 'STUDENT') {
-            $hasConfirmedPayment = Payment::where('student_id', $user->id)
-                ->where('status', 'CONFIRMED')
-                ->where(function ($q) {
-                    $q->where('fee_item', 'Registration')
-                      ->orWhere('fee_item', 'Admission');
-                })
-                ->exists();
-
-            if (!$hasConfirmedPayment) {
-                return $this->error(
-                    'PAYMENT_REQUIRED',
-                    'Your registration fee has not been confirmed. Please contact the accounts office.',
-                    403
-                );
+        try {
+            // Rate limiting: 5 attempts per minute per IP+email
+            $key = 'login:' . $request->ip() . ':' . $request->email;
+            if (RateLimiter::tooManyAttempts($key, 5)) {
+                $seconds = RateLimiter::availableIn($key);
+                return $this->error('RATE_LIMITED', "Too many login attempts. Try again in {$seconds} seconds.", 429);
             }
+
+            $user = User::where('email', $request->email)->first();
+
+            if (!$user || !Hash::check($request->password, $user->password)) {
+                RateLimiter::hit($key, 60);
+                return $this->error('INVALID_CREDENTIALS', 'The provided credentials are incorrect.', 401);
+            }
+
+            if ($user->status === 'SUSPENDED') {
+                return $this->error('ACCOUNT_SUSPENDED', 'Your account has been suspended. Contact administration.', 403);
+            }
+
+            // Payment gate for STUDENT role (spec §22 — payment-gated enrolment)
+            if ($user->role === 'STUDENT') {
+                $hasConfirmedPayment = Payment::where('student_id', $user->id)
+                    ->where('status', 'CONFIRMED')
+                    ->where(function ($q) {
+                        $q->where('fee_item', 'Registration')
+                          ->orWhere('fee_item', 'Admission');
+                    })
+                    ->exists();
+
+                if (!$hasConfirmedPayment) {
+                    return $this->error(
+                        'PAYMENT_REQUIRED',
+                        'Your registration fee has not been confirmed. Please contact the accounts office.',
+                        403
+                    );
+                }
+            }
+
+            // Clear rate limiter on successful login
+            RateLimiter::clear($key);
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return $this->success([
+                'user' => $user,
+                'access_token' => $token,
+            ]);
+        } catch (\Exception $e) {
+            return $this->error('SERVER_ERROR', $e->getMessage(), 500);
         }
-
-        // Clear rate limiter on successful login
-        RateLimiter::clear($key);
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return $this->success([
-            'user' => $user,
-            'access_token' => $token,
-        ]);
     }
 
     public function logout(Request $request)
