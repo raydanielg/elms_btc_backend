@@ -6,8 +6,9 @@ use Illuminate\Http\Request;
 define('LARAVEL_START', microtime(true));
 
 // Auto-create .env from .env.example if it doesn't exist (for fresh deployments)
-$envPath = __DIR__.'/../.env';
-$envExamplePath = __DIR__.'/../.env.example';
+$basePath = __DIR__.'/..';
+$envPath = $basePath.'/.env';
+$envExamplePath = $basePath.'/.env.example';
 if (!file_exists($envPath) && file_exists($envExamplePath)) {
     copy($envExamplePath, $envPath);
 }
@@ -16,7 +17,6 @@ if (!file_exists($envPath) && file_exists($envExamplePath)) {
 if (file_exists($envPath)) {
     $envContent = file_get_contents($envPath);
     if (preg_match('/^APP_KEY=\s*$/m', $envContent)) {
-        // Generate a random base64 key (Laravel-compatible)
         $key = 'base64:'.base64_encode(random_bytes(32));
         $envContent = preg_replace('/^APP_KEY=\s*$/m', 'APP_KEY='.$key, $envContent);
         file_put_contents($envPath, $envContent);
@@ -24,10 +24,28 @@ if (file_exists($envPath)) {
 
     // If using sqlite, ensure the database file exists
     if (preg_match('/^DB_CONNECTION=sqlite/m', $envContent)) {
-        $sqlitePath = __DIR__.'/../database/database.sqlite';
+        $sqlitePath = $basePath.'/database/database.sqlite';
         if (!file_exists($sqlitePath)) {
             touch($sqlitePath);
         }
+    }
+}
+
+// Ensure storage directories exist (prevents 500 on fresh deploy)
+$storageDirs = [
+    'storage/app',
+    'storage/app/public',
+    'storage/framework/cache',
+    'storage/framework/cache/data',
+    'storage/framework/sessions',
+    'storage/framework/views',
+    'storage/logs',
+    'bootstrap/cache',
+];
+foreach ($storageDirs as $dir) {
+    $fullPath = $basePath.'/'.$dir;
+    if (!is_dir($fullPath)) {
+        @mkdir($fullPath, 0775, true);
     }
 }
 
