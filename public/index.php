@@ -14,13 +14,24 @@ if (!file_exists($envPath) && file_exists($envExamplePath)) {
 }
 
 // Ensure APP_KEY is set — generate one if missing (prevents 500 on fresh deploy)
+$installedFlag = $basePath.'/storage/app/installed';
+$isInstalled = file_exists($installedFlag);
+
 if (file_exists($envPath)) {
     $envContent = file_get_contents($envPath);
+
+    // Generate APP_KEY if missing
     if (preg_match('/^APP_KEY=\s*$/m', $envContent)) {
         $key = 'base64:'.base64_encode(random_bytes(32));
         $envContent = preg_replace('/^APP_KEY=\s*$/m', 'APP_KEY='.$key, $envContent);
-        file_put_contents($envPath, $envContent);
     }
+
+    // Force APP_DEBUG=true when not installed (so installer errors are visible)
+    if (!$isInstalled) {
+        $envContent = preg_replace('/^APP_DEBUG=.*/m', 'APP_DEBUG=true', $envContent);
+    }
+
+    file_put_contents($envPath, $envContent);
 
     // If using sqlite, ensure the database file exists
     if (preg_match('/^DB_CONNECTION=sqlite/m', $envContent)) {
@@ -47,6 +58,14 @@ foreach ($storageDirs as $dir) {
     if (!is_dir($fullPath)) {
         @mkdir($fullPath, 0775, true);
     }
+}
+
+// Clear cached config when not installed (prevents stale config from crashing)
+if (!$isInstalled) {
+    @unlink($basePath.'/bootstrap/cache/config.php');
+    @unlink($basePath.'/bootstrap/cache/routes-v7.php');
+    @unlink($basePath.'/bootstrap/cache/events.php');
+    @unlink($basePath.'/bootstrap/cache/routes.php');
 }
 
 // Determine if the application is in maintenance mode...
