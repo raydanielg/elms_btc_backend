@@ -155,9 +155,12 @@ class InstallerController extends Controller
 
     private function writeEnvFile(array $config): void
     {
+        // Preserve existing APP_KEY
+        $existingKey = env('APP_KEY', '');
+
         $envContent = "APP_NAME=\"{$config['APP_NAME']}\"\n";
         $envContent .= "APP_ENV=production\n";
-        $envContent .= "APP_KEY=\n";
+        $envContent .= "APP_KEY={$existingKey}\n";
         $envContent .= "APP_DEBUG=false\n";
         $envContent .= "APP_URL={$config['APP_URL']}\n\n";
         $envContent .= "APP_LOCALE=en\n";
