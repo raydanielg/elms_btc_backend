@@ -29,6 +29,10 @@ if (file_exists($envPath)) {
     // Force APP_DEBUG=true when not installed (so installer errors are visible)
     if (!$isInstalled) {
         $envContent = preg_replace('/^APP_DEBUG=.*/m', 'APP_DEBUG=true', $envContent);
+        // Force file-based session/cache — DB tables don't exist yet
+        $envContent = preg_replace('/^SESSION_DRIVER=.*/m', 'SESSION_DRIVER=file', $envContent);
+        $envContent = preg_replace('/^CACHE_STORE=.*/m', 'CACHE_STORE=file', $envContent);
+        $envContent = preg_replace('/^QUEUE_CONNECTION=.*/m', 'QUEUE_CONNECTION=sync', $envContent);
     }
 
     file_put_contents($envPath, $envContent);
