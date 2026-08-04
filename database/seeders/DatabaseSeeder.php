@@ -283,6 +283,9 @@ class DatabaseSeeder extends Seeder
             'is_pinned' => true,
             'created_by' => $principal->id,
         ]);
+
+        // ===== Certificate Templates =====
+        $this->call(CertificateTemplateSeeder::class);
     }
 }
 

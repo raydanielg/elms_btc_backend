@@ -38,6 +38,8 @@ Route::post('/auth/reset-password', [AuthController::class, 'resetPassword']);
 
 // Public certificate verification (no auth — spec §5)
 Route::get('/verify/{code}', [CertificateController::class, 'verify']);
+Route::get('/certificates/{id}/view', [CertificateController::class, 'viewCertificate']);
+Route::get('/certificates/{id}/download', [CertificateController::class, 'downloadPdf']);
 Route::get('/auth/email/confirm/{token}', [AuthController::class, 'confirmEmail']);
 Route::post('/auth/email/resend', [AuthController::class, 'resendConfirmation']);
 

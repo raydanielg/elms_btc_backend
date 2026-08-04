@@ -343,6 +343,124 @@ class CertificateController extends Controller
         ]);
     }
 
+    /** GET /certificates/:id/view — view certificate as HTML (printable) */
+    public function viewCertificate(string $id)
+    {
+        $issue = MCertificateIssue::with(['user', 'template.pages.elements', 'course', 'issuer'])->findOrFail($id);
+
+        if ($issue->status === 'REVOKED') {
+            return response('<h1>This certificate has been REVOKED</h1><p>Verification code: ' . $issue->code . '</p>', 200, ['Content-Type' => 'text/html']);
+        }
+
+        $html = $this->renderCertificateHtml($issue);
+        return response($html, 200, ['Content-Type' => 'text/html']);
+    }
+
+    /** GET /certificates/:id/download — download certificate as HTML file (opens print dialog) */
+    public function downloadPdf(string $id)
+    {
+        $issue = MCertificateIssue::with(['user', 'template.pages.elements', 'course', 'issuer'])->findOrFail($id);
+
+        if ($issue->status === 'REVOKED') {
+            return response('<h1>This certificate has been REVOKED</h1>', 200, ['Content-Type' => 'text/html']);
+        }
+
+        $html = $this->renderCertificateHtml($issue, true);
+        $filename = 'certificate_' . $issue->code . '.html';
+        return response($html, 200, [
+            'Content-Type' => 'text/html',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    private function renderCertificateHtml(MCertificateIssue $issue, bool $autoPrint = false): string
+    {
+        $template = $issue->template;
+        $page = $template->pages->first();
+        $elements = $page ? $page->elements : collect();
+        $user = $issue->user;
+
+        $width = $page->width ?? 842;
+        $height = $page->height ?? 595;
+        $orientation = $template->orientation === 'PORTRAIT' ? 'portrait' : 'landscape';
+
+        $elementHtml = '';
+        foreach ($elements as $el) {
+            $text = $this->resolveElementText($el, $issue);
+            if (!$text && $el->element_type !== 'qr_code') continue;
+
+            $fontSize = ($el->font_size ?? 14) . 'px';
+            $font = $el->font ?? 'Georgia';
+            $colour = $el->colour ?? '#333333';
+            $align = strtolower($el->align ?? 'CENTER');
+            $x = $el->pos_x ?? 0;
+            $y = $el->pos_y ?? 0;
+            $z = $el->z_index ?? 1;
+
+            if ($el->element_type === 'qr_code') {
+                $qrUrl = config('app.url') . '/api/verify/' . $issue->code;
+                $elementHtml .= '<div style="position:absolute;left:' . $x . 'px;top:' . $y . 'px;transform:translateX(-50%);z-index:' . $z . ';"><img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=' . urlencode($qrUrl) . '" width="80" height="80" alt="QR Code" /></div>';
+            } else {
+                $elementHtml .= '<div style="position:absolute;left:' . $x . 'px;top:' . $y . 'px;transform:translateX(-50%);font-family:' . $font . ',serif;font-size:' . $fontSize . ';color:' . $colour . ';text-align:' . $align . ';z-index:' . $z . ';white-space:nowrap;">' . htmlspecialchars($text) . '</div>';
+            }
+        }
+
+        $printJs = $autoPrint ? '<script>window.onload=function(){window.print()}</script>' : '';
+
+        return '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Certificate - ' . htmlspecialchars($user->full_name) . '</title>
+        <style>
+            @page { size: A4 ' . $orientation . '; margin: 0; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { background: #f0f0f0; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: Georgia, serif; }
+            .cert-page { position: relative; width: ' . $width . 'px; height: ' . $height . 'px; background: #fff; border: 2px solid #1a365d; box-shadow: 0 4px 20px rgba(0,0,0,0.15); overflow: hidden; }
+            .cert-border-inner { position: absolute; top: 15px; left: 15px; right: 15px; bottom: 15px; border: 1px solid #c8861a; pointer-events: none; z-index: 0; }
+            .cert-corner { position: absolute; width: 40px; height: 40px; border: 3px solid #1a365d; z-index: 0; }
+            .cert-corner.tl { top: 8px; left: 8px; border-right: none; border-bottom: none; }
+            .cert-corner.tr { top: 8px; right: 8px; border-left: none; border-bottom: none; }
+            .cert-corner.bl { bottom: 8px; left: 8px; border-right: none; border-top: none; }
+            .cert-corner.br { bottom: 8px; right: 8px; border-left: none; border-top: none; }
+            @media print { body { background: #fff; } .cert-page { box-shadow: none; border: none; } }
+        </style></head><body>
+        <div class="cert-page">
+            <div class="cert-border-inner"></div>
+            <div class="cert-corner tl"></div>
+            <div class="cert-corner tr"></div>
+            <div class="cert-corner bl"></div>
+            <div class="cert-corner br"></div>
+            ' . $elementHtml . '
+        </div>
+        ' . $printJs . '
+        </body></html>';
+    }
+
+    private function resolveElementText($el, MCertificateIssue $issue): string
+    {
+        switch ($el->element_type) {
+            case 'static_text':
+                return $el->data['text'] ?? '';
+            case 'recipient_name':
+                return $issue->user->full_name ?? '';
+            case 'program_name':
+                return $issue->program?->name ?? '';
+            case 'course_name':
+                return $issue->course?->name ?? '';
+            case 'grade':
+                return $issue->grade ?? '';
+            case 'date':
+                return $issue->issued_at ? $issue->issued_at->format('F j, Y') : now()->format('F j, Y');
+            case 'verification_code':
+                return $issue->code ?? '';
+            case 'serial_number':
+                return 'Serial No: ' . ($issue->serial_number ?? 'N/A');
+            case 'qr_code':
+                return 'QR';
+            case 'custom_field':
+                return $el->data['text'] ?? '';
+            default:
+                return '';
+        }
+    }
+
     // ===== Awards (spec §2.6) =====
 
     /** GET /awards — list awards */
