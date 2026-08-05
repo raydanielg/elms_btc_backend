@@ -209,6 +209,42 @@ class DatabaseSeeder extends Seeder
             ['body' => 'Welcome to the Electronic Learning Management System of Butimba Teachers College. We wish you a productive academic year.', 'is_pinned' => true, 'created_by' => $principal->id]
         );
 
+        // ===== Demo Tutor (easy login for testing) =====
+        $demoTutor = User::firstOrCreate(
+            ['email' => 'tutor@butimba.ac.tz'],
+            ['full_name' => 'Demo Tutor (Grace Kimaro)', 'password' => bcrypt('password'), 'role' => 'TUTOR', 'status' => 'ACTIVE', 'email_verified_at' => now()]
+        );
+
+        // Assign demo tutor to first 3 courses
+        $allCourses = Course::all();
+        foreach ($allCourses->take(3) as $c) {
+            $c->tutors()->syncWithoutDetaching([$demoTutor->id => ['role' => 'LEAD']]);
+        }
+
+        // ===== Demo Student (easy login for testing) =====
+        $demoStudent = User::firstOrCreate(
+            ['email' => 'student@butimba.ac.tz'],
+            ['full_name' => 'Demo Student (John Mwakyusa)', 'password' => bcrypt('password'), 'role' => 'STUDENT', 'status' => 'ACTIVE', 'email_verified_at' => now()]
+        );
+
+        // Enroll demo student in all courses
+        foreach ($allCourses as $c) {
+            Enrollment::firstOrCreate(
+                ['student_id' => $demoStudent->id, 'course_id' => $c->id],
+                ['status' => 'ACTIVE', 'enrolled_at' => now()->subDays(30)]
+            );
+        }
+
+        // Payment for demo student
+        Payment::firstOrCreate(
+            ['student_id' => $demoStudent->id, 'fee_item' => 'Registration', 'status' => 'CONFIRMED'],
+            ['amount' => 50000, 'control_number' => 'CN' . rand(100000, 999999), 'paid_at' => now()->subDays(30), 'verified_by' => $accountant->id]
+        );
+        Payment::firstOrCreate(
+            ['student_id' => $demoStudent->id, 'fee_item' => 'Tuition', 'status' => 'CONFIRMED'],
+            ['amount' => 450000, 'control_number' => 'CN' . rand(100000, 999999), 'paid_at' => now()->subDays(20), 'verified_by' => $accountant->id]
+        );
+
         // ===== Certificate Templates =====
         $this->call(CertificateTemplateSeeder::class);
     }
